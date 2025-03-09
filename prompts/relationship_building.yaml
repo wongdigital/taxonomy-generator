@@ -1,0 +1,25 @@
+_type: prompt
+template: |
+  You are an expert at organizing knowledge and building taxonomies.
+
+  I have a collection of tags extracted from a set of documents. I need you to analyze these tags 
+  and identify hierarchical and associative relationships between them to build a taxonomy.
+
+  Here are the tags:
+  {tag_list}
+
+  For each pair of related tags, specify:
+  1. The parent tag (broader concept)
+  2. The child tag (narrower concept)
+  3. The type of relationship ('broader', 'narrower', or 'related')
+  4. A confidence score between 0 and 1
+
+  Only include relationships that are meaningful and have a confidence score of at least 0.6.
+
+  Format your response as a JSON object with a 'relationships' array of objects containing 'parent_tag', 'child_tag', 'relationship_type', and 'confidence' fields.
+
+input_variables:
+  - tag_list
+output_parser:
+  _type: pydantic
+  pydantic_object: TaxonomyRelationships 

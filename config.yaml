@@ -1,46 +1,44 @@
-# Markdown Tag Taxonomy Generator Configuration
-
-# LLM settings
+# LLM Configuration
 llm:
-  provider: openai  # openai, anthropic, etc.
-  api_key: "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"  # API key for the LLM provider
-  model: gpt-4o  # model name
-  temperature: 0.2  # randomness (0-1)
-  max_tokens: 2000  # max tokens per response
+  provider: openai
+  model: gpt-4o
+  temperature: 0.2
+  api_key: ${OPENAI_API_KEY}  # Use environment variable
 
-# Document processing settings
-document:
-  chunk_size: 1000  # size of document chunks
-  chunk_overlap: 200  # overlap between chunks
-  exclude_patterns:  # glob patterns to exclude
-    - "**/node_modules/**"
-    - "**/.git/**"
-  frontmatter: true  # extract frontmatter metadata
-  parse_links: true  # extract and analyze links
+# Embeddings Configuration
+embeddings:
+  provider: openai
+  model: text-embedding-3-small
+  api_key: ${OPENAI_API_KEY}
 
-# Tag extraction settings
-tag_extraction:
-  min_importance: 3  # minimum importance score (1-10)
-  max_tags_per_document: 15  # max tags per document
-  use_existing_tags: true  # use tags from frontmatter
-  consolidate_similar: true  # merge similar tags
+# Processing Configuration
+processing:
+  batch_size: 5  # Reduced batch size for better memory management
+  max_retries: 5  # Increased retries
+  retry_delay: 2  # Increased initial retry delay
+  max_concurrency: 3  # Reduced concurrency to avoid rate limits
+  adaptive_rate_limiting: true  # Enable adaptive rate limiting
 
-# Taxonomy settings
-taxonomy:
-  min_confidence: 0.6  # minimum relationship confidence (0-1)
-  max_depth: 5  # maximum hierarchy depth
-  visualization:
-    format: png  # png, svg, html
-    node_size: 700
-    font_size: 10
-    layout: hierarchical  # hierarchical, circular, force
-  export_formats:
-    - json
-    - yaml
-    - graphml
+# Caching Configuration
+caching:
+  embeddings_cache_dir: ./cache/embeddings
+  llm_cache_path: .langchain.db
+  batch_results_dir: ./cache/batch_results  # Directory for temporary batch results
 
-# Output settings
+# Output Configuration
 output:
-  detailed_report: true  # generate detailed report
-  tag_descriptions: true  # include tag descriptions
-  include_sources: true  # link tags to source documents
+  graph_format: png
+  export_format: json
+  visualization:
+    figure_size: [12, 8]
+    node_size: 700
+    node_color: lightblue
+    edge_color: gray
+    font_size: 10
+
+# Taxonomy Configuration
+taxonomy:
+  min_confidence: 0.6
+  max_tags: 100
+  chunk_size: 1000
+  chunk_overlap: 200 

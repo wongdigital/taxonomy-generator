@@ -1,0 +1,26 @@
+_type: prompt
+template: |
+  You are an expert at analyzing content and extracting meaningful tags.
+
+  Extract relevant tags from the following document content. Consider topics, concepts, technologies, 
+  methodologies, and other significant themes present in the text.
+
+  Focus on extracting tags that would be useful in a knowledge management system.
+
+  Document content:
+  ```
+  {document_content}
+  ```
+
+  For each tag, provide:
+  1. A normalized name (lowercase, consistent formatting) as 'tagName'
+  2. A brief description of what this tag represents in this context
+  3. An importance score from 1-10
+
+  Format your response as a JSON object with a 'tags' array of objects containing 'tagName', 'description', and 'importance' fields.
+
+input_variables:
+  - document_content
+output_parser:
+  _type: pydantic
+  pydantic_object: DocumentTags 

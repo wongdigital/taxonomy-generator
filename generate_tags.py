@@ -4,12 +4,19 @@ Markdown Tag Taxonomy Generator - Command Line Interface
 """
 
 import os
+from dotenv import load_dotenv
+
+# Load environment variables at the very beginning
+load_dotenv()
+
 import argparse
 import sys
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any
 import yaml
+from openai import OpenAI
+from anthropic import Anthropic
 
 from taxonomy_generator import MarkdownTaxonomyGenerator
 
@@ -27,26 +34,24 @@ def setup_argparser() -> argparse.ArgumentParser:
     )
     
     parser.add_argument(
-        "--output-dir", "-o",
-        default="./output",
+        "output_dir",
         help="Directory to save the generated taxonomy and visualizations"
     )
     
     parser.add_argument(
         "--model", "-m",
-        default="gpt-3.5-turbo",
-        help="LLM model to use (e.g., gpt-3.5-turbo, gpt-4)"
+        help="Override the model specified in config.yaml"
     )
     
     parser.add_argument(
         "--api-key", "-k",
-        help="OpenAI API key (defaults to config.yaml, then OPENAI_API_KEY environment variable)"
+        help="Override the API key from config.yaml"
     )
     
     parser.add_argument(
         "--config", "-c",
         default="config.yaml",
-        help="Path to configuration file (default: config.yaml)"
+        help="Path to configuration file"
     )
     
     parser.add_argument(
@@ -98,8 +103,37 @@ def get_api_key(args: argparse.Namespace, config: Dict[str, Any]) -> Optional[st
     if config.get('llm', {}).get('api_key'):
         return config['llm']['api_key']
     
-    # Finally, check environment variable
-    return os.getenv("OPENAI_API_KEY")
+    # Finally, check environment variable based on provider
+    provider = config.get('llm', {}).get('provider', 'openai').lower()
+    if provider == 'openai':
+        return os.getenv("OPENAI_API_KEY")
+    elif provider == 'anthropic':
+        return os.getenv("ANTHROPIC_API_KEY")
+    
+    return None
+
+
+def get_llm_client(config: Dict):
+    """Get the appropriate LLM client based on configuration.
+    
+    Args:
+        config: Configuration dictionary containing LLM settings
+        
+    Returns:
+        LLM client instance
+    """
+    provider = config['llm'].get('provider', 'openai').lower()
+    api_key = config['llm'].get('api_key')
+    
+    if not api_key:
+        raise ValueError(f"API key not found in config for provider {provider}")
+    
+    if provider == 'openai':
+        return OpenAI(api_key=api_key)
+    elif provider == 'anthropic':
+        return Anthropic(api_key=api_key)
+    else:
+        raise ValueError(f"Unsupported LLM provider: {provider}")
 
 
 def main():
@@ -110,14 +144,30 @@ def main():
     # Load configuration
     config = load_config(args.config, args.verbose)
     
+    # Override config with command line arguments if provided
+    if args.model:
+        if not config.get('llm'):
+            config['llm'] = {}
+        config['llm']['model'] = args.model
+    
     # Get API key
     api_key = get_api_key(args, config)
     if not api_key:
-        print("Error: OpenAI API key not found. Please provide it via --api-key, config.yaml, or OPENAI_API_KEY environment variable.")
+        print("Error: API key not found. Please provide it via --api-key, config.yaml, or environment variable.")
         sys.exit(1)
     
-    # Set up OpenAI API key
-    os.environ["OPENAI_API_KEY"] = api_key
+    # Update config with API key
+    if not config.get('llm'):
+        config['llm'] = {}
+    config['llm']['api_key'] = api_key
+    
+    # Validate config
+    if not config.get('llm', {}).get('provider'):
+        print("Error: LLM provider not specified in config.yaml")
+        sys.exit(1)
+    if not config.get('llm', {}).get('model'):
+        print("Error: Model not specified in config.yaml or via --model")
+        sys.exit(1)
     
     # If number of tags not provided, ask user
     num_tags = args.num_tags
@@ -131,21 +181,27 @@ def main():
             except ValueError:
                 print("Please enter a valid number.")
     
+    # Update config with number of tags
+    if not config.get('taxonomy'):
+        config['taxonomy'] = {}
+    config['taxonomy']['max_tags'] = num_tags
+    
     try:
         # Initialize and run the taxonomy generator
         generator = MarkdownTaxonomyGenerator(
-            llm_model_name=args.model,
-            config=config
+            config=config,
+            client=get_llm_client(config)
         )
         
-        generator.generate_taxonomy(
+        print("\nGenerating tags from markdown files...")
+        tags_path = generator.generate_taxonomy(
             directory_path=args.input_dir,
-            output_dir=args.output_dir,
-            num_tags=num_tags
+            output_dir=args.output_dir
         )
+        print(f"\nTags successfully generated and saved to: {tags_path}")
         
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"\nError: {str(e)}")
         sys.exit(1)
 
 

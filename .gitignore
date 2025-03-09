@@ -1,8 +1,12 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
 .Python
 build/
 develop-eggs/
@@ -21,39 +25,27 @@ wheels/
 *.egg
 
 # Virtual Environment
-venv/
-env/
-ENV/
-.env
 .venv
-pip-debug.log
+venv/
+ENV/
 
-# IDE and editor files
+# Cache directories
+.cache/
+cache/
+.langchain.db
+
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+
+# OS
 .DS_Store
+Thumbs.db
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Misc
-*.log
-.env* 
-input/
+# Project specific
 output/
+*.log
+taxonomy_graph.png
+taxonomy.json
