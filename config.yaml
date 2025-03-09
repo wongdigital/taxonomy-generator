@@ -4,7 +4,7 @@
 llm:
   provider: openai  # openai, anthropic, etc.
   api_key: "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"  # API key for the LLM provider
-  model: gpt-4o-2024-08-06  # model name
+  model: gpt-4o  # model name
   temperature: 0.2  # randomness (0-1)
   max_tokens: 2000  # max tokens per response
 
