@@ -60,20 +60,20 @@ It uses LLMs (like GPT-3.5/4) to understand the semantic meaning of your content
 
 The tool operates in two modes:
 ```bash
-python cli.py path/to/markdown/files
+python generate_tags.py path/to/markdown/files
 # You will be prompted for the number of categories to generate
 ```
 
 2. **Tag Generation Mode** (when `categories.json` exists):
 ```bash
-python cli.py path/to/markdown/files
+python generate_tags.py path/to/markdown/files
 # You will be prompted for the number of tags to generate per category
 ```
 
 ### Command Line Options
 
 ```
-usage: cli.py [-h] [--output-dir OUTPUT_DIR] [--model MODEL] [--api-key API_KEY]
+usage: generate_tags.py [-h] [--output-dir OUTPUT_DIR] [--model MODEL] [--api-key API_KEY]
               [--config CONFIG] [--num-categories NUM_CATEGORIES] 
               [--num-tags NUM_TAGS] [--verbose] input_dir
 
@@ -97,22 +97,22 @@ optional arguments:
 
 **Generate 5 categories:**
 ```bash
-python cli.py my_markdown_files/ --num-categories 5
+python generate_tags.py my_markdown_files/ --num-categories 5
 ```
 
 **Generate 10 tags per category:**
 ```bash
-python cli.py my_markdown_files/ --num-tags 10
+python generate_tags.py my_markdown_files/ --num-tags 10
 ```
 
 **Using a custom model:**
 ```bash
-python cli.py my_markdown_files/ --model gpt-4
+python generate_tags.py my_markdown_files/ --model gpt-4
 ```
 
 **Using a custom config file:**
 ```bash
-python cli.py my_markdown_files/ --config custom_config.yaml
+python generate_tags.py my_markdown_files/ --config custom_config.yaml
 ```
 
 ## Configuration
@@ -167,7 +167,7 @@ The tool generates two types of files:
 ```
 taxonomy-generator/
 ├── taxonomy_generator.py  # Core implementation
-├── cli.py                # Command-line interface
+├── generate_tags.py                # Command-line interface
 ├── requirements.txt      # Dependencies
 └── README.md            # This file
 ```
