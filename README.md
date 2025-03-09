@@ -1,40 +1,42 @@
 # Markdown Tag Taxonomy Generator
 
-A Python tool that uses LangChain and Large Language Models (LLMs) to analyze Markdown files, extract meaningful tags, and generate a hierarchical taxonomy.
+A Python tool that uses LangChain and Large Language Models (LLMs) to analyze Markdown files and generate a semantic taxonomy with categories and tags.
 
 ## Overview
 
 This tool helps organize collections of Markdown files (like blog posts, notes, documentation) by:
 
-1. Extracting relevant tags and topics from the content
-2. Building relationships between tags (hierarchical and associative)
-3. Creating a visual and interactive taxonomy
-4. Exporting the taxonomy in various formats
+1. Generating semantic categories based on content analysis
+2. Creating relevant tags for each category
+3. Saving the taxonomy in structured JSON format
 
-It uses LLMs (like GPT-3.5/4) to understand the semantic meaning of your content and create a rich, meaningful taxonomy.
+It uses LLMs (like GPT-3.5/4) to understand the semantic meaning of your content and create meaningful categories and tags.
 
 ## Features
 
-- **Smart Tag Extraction**: Uses LLMs to identify relevant topics and concepts
-- **Hierarchical Relationships**: Builds parent-child relationships between tags
-- **Frontmatter Support**: Extracts existing tags from YAML frontmatter
-- **Visualization**: Creates graph visualizations of the taxonomy
-- **Multiple Export Formats**: JSON, YAML, GraphML
-- **Configurable**: Extensive configuration options
+- **Two-Phase Taxonomy Generation**:
+  - Category Generation: Creates general categories based on content analysis
+  - Tag Generation: Generates specific tags for each category
+- **Smart Content Analysis**: Uses LLMs to identify relevant topics and concepts
+- **Parallel Processing**: Utilizes multiple CPU cores for faster document analysis
+- **Configurable Output**: Control the number of categories and tags
+- **JSON Output**: Clean, structured output in JSON format
+- **Interactive Mode**: Prompts for category and tag counts if not specified
+- **Flexible Configuration**: Support for config files and command-line options
 
 ## Installation
 
 ### Prerequisites
 
 - Python 3.8+
-- OpenAI API key (or other supported LLM provider)
+- OpenAI API key
 
 ### Setup
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/markdown-taxonomy.git
-   cd markdown-taxonomy
+   git clone https://github.com/yourusername/taxonomy-generator.git
+   cd taxonomy-generator
    ```
 
 2. Install dependencies:
@@ -44,33 +46,36 @@ It uses LLMs (like GPT-3.5/4) to understand the semantic meaning of your content
 
 3. Set up your API key (in order of precedence):
    - Use the `--api-key` option when running the tool
-   - Create a `config.yaml` file in the project directory (recommended)
+   - Create a `config.yaml` file (recommended):
+     ```yaml
+     llm:
+       api_key: "your-api-key-here"
+       model: "gpt-3.5-turbo"  # optional
+     ```
    - Set the environment variable: `export OPENAI_API_KEY="your-api-key"`
 
 ## Usage
 
 ### Basic Usage
 
-The tool will automatically use `config.yaml` from the current directory if it exists. Run the tool on a directory of Markdown files:
-
+The tool operates in two modes:
 ```bash
-python cli.py path/to/markdown/files --output-dir taxonomy_output
+python cli.py path/to/markdown/files
+# You will be prompted for the number of categories to generate
 ```
 
-This will:
-1. Load configuration from `config.yaml` if present
-2. Analyze all `.md` files in the directory (including subdirectories)
-3. Extract tags using LLM
-4. Build relationships between tags
-5. Generate a taxonomy graph visualization
-6. Export the taxonomy data as JSON
+2. **Tag Generation Mode** (when `categories.json` exists):
+```bash
+python cli.py path/to/markdown/files
+# You will be prompted for the number of tags to generate per category
+```
 
 ### Command Line Options
 
-All command-line options override their corresponding values in the config file.
-
 ```
-usage: cli.py [-h] [--output-dir OUTPUT_DIR] [--model MODEL] [--api-key API_KEY] [--verbose] [--config CONFIG] [--format {json,yaml,graphml}] input_dir
+usage: cli.py [-h] [--output-dir OUTPUT_DIR] [--model MODEL] [--api-key API_KEY]
+              [--config CONFIG] [--num-categories NUM_CATEGORIES] 
+              [--num-tags NUM_TAGS] [--verbose] input_dir
 
 Generate a tag taxonomy from a collection of Markdown files.
 
@@ -78,21 +83,27 @@ positional arguments:
   input_dir             Directory containing Markdown files
 
 optional arguments:
-  -h, --help            show this help message and exit
-  --output-dir OUTPUT_DIR, -o OUTPUT_DIR
-                        Directory to save the generated taxonomy and visualizations (default: ./taxonomy_output)
-  --model MODEL, -m MODEL
-                        LLM model to use (e.g., gpt-3.5-turbo, gpt-4) (default: gpt-3.5-turbo)
-  --api-key API_KEY, -k API_KEY
-                        OpenAI API key (defaults to config file, then OPENAI_API_KEY environment variable)
-  --verbose, -v         Enable verbose output (default: False)
-  --config CONFIG, -c CONFIG
-                        Path to custom configuration file (default: ./config.yaml)
-  --format {json,yaml,graphml}, -f {json,yaml,graphml}
-                        Format for taxonomy export (default: json)
+  -h, --help           show this help message and exit
+  --output-dir, -o     Directory to save the generated taxonomy (default: ./output)
+  --model, -m          LLM model to use (default: gpt-3.5-turbo)
+  --api-key, -k        OpenAI API key
+  --config, -c         Path to configuration file (default: config.yaml)
+  --num-categories     Number of categories to generate
+  --num-tags           Number of tags to generate per category
+  --verbose, -v        Enable verbose output
 ```
 
 ### Examples
+
+**Generate 5 categories:**
+```bash
+python cli.py my_markdown_files/ --num-categories 5
+```
+
+**Generate 10 tags per category:**
+```bash
+python cli.py my_markdown_files/ --num-tags 10
+```
 
 **Using a custom model:**
 ```bash
@@ -104,113 +115,61 @@ python cli.py my_markdown_files/ --model gpt-4
 python cli.py my_markdown_files/ --config custom_config.yaml
 ```
 
-**Generating multiple export formats:**
-```bash
-python cli.py my_markdown_files/ --format yaml
-```
-
 ## Configuration
 
-The tool is configured through a YAML configuration file. By default, it looks for `config.yaml` in the current directory. You can also specify a different config file using the `--config` option.
-
-Configuration values are loaded in the following order of precedence (highest to lowest):
-1. Command-line arguments
-2. Specified config file (via --config)
-3. Default config.yaml in current directory
-4. Built-in defaults
+The tool can be configured through a YAML configuration file. By default, it looks for `config.yaml` in the current directory.
 
 Example configuration file:
-
 ```yaml
 # LLM settings
 llm:
-  provider: openai  # openai, anthropic, etc.
-  api_key: "your-api-key-here"  # API key for the LLM provider
-  model: gpt-3.5-turbo  # model name
-  temperature: 0.2  # randomness (0-1)
-  max_tokens: 2000  # max tokens per response
-
-# Document processing settings
-document:
-  chunk_size: 1000  # size of document chunks
-  chunk_overlap: 200  # overlap between chunks
-  exclude_patterns:  # glob patterns to exclude
-    - "**/node_modules/**"
-    - "**/.git/**"
-  frontmatter: true  # extract frontmatter metadata
-  parse_links: true  # extract and analyze links
-
-# Tag extraction settings
-tag_extraction:
-  min_importance: 3  # minimum importance score (1-10)
-  max_tags_per_document: 15  # max tags per document
-  use_existing_tags: true  # use tags from frontmatter
-  consolidate_similar: true  # merge similar tags
-
-# Taxonomy settings
-taxonomy:
-  min_confidence: 0.6  # minimum relationship confidence (0-1)
-  max_depth: 5  # maximum hierarchy depth
-  visualization:
-    format: png  # png, svg, html
-    node_size: 700
-    font_size: 10
-    layout: hierarchical  # hierarchical, circular, force
-  export_formats:
-    - json
-    - yaml
-    - graphml
-
-# Output settings
-output:
-  detailed_report: true  # generate detailed report
-  tag_descriptions: true  # include tag descriptions
-  include_sources: true  # link tags to source documents
+  api_key: "your-api-key-here"  # OpenAI API key
+  model: "gpt-3.5-turbo"        # Model to use
+  temperature: 0.2              # Controls randomness in responses
 ```
 
-## Output
+Configuration values are loaded in the following order of precedence (highest to lowest):
+1. Command-line arguments
+2. Config file settings
+3. Environment variables
+4. Built-in defaults
 
-The tool generates several files in the output directory:
+## Output Format
 
-- `taxonomy_graph.png`: Visual representation of the taxonomy
-- `taxonomy.json` (or .yaml/.graphml): Structured data of the taxonomy
-- Detailed reports and other visualizations (if configured)
+The tool generates two types of files:
+
+1. `categories.json` (Category Generation Mode):
+```json
+{
+    "categories": [
+        {
+            "categoryName": "example",
+            "frequency": 5
+        }
+    ]
+}
+```
+
+2. `taxonomy.json` (Tag Generation Mode):
+```json
+{
+    "categories": [
+        {
+            "categoryName": "example",
+            "tags": ["tag1", "tag2", "tag3"]
+        }
+    ]
+}
+```
 
 ## Project Structure
 
 ```
-markdown-taxonomy/
+taxonomy-generator/
 ├── taxonomy_generator.py  # Core implementation
-├── cli.py                 # Command-line interface
-├── prompts.py             # LLM prompt templates
-├── requirements.txt       # Dependencies
-├── config.yaml            # Default configuration
-└── README.md              # This file
-```
-
-## Extending the Tool
-
-### Using Different LLM Providers
-
-The tool is designed to work with multiple LLM providers. To use a different provider:
-
-1. Install the required package (e.g., `pip install anthropic`)
-2. Update the config file with the provider and API key
-3. Update the prompt templates if necessary
-
-### Adding Custom Analysis
-
-You can extend the `TagExtractor` and `TaxonomyBuilder` classes to implement custom analysis logic:
-
-```python
-class CustomTagExtractor(TagExtractor):
-    def __init__(self, llm):
-        super().__init__(llm)
-        # Add your custom initialization
-        
-    def extract_tags_from_document(self, document):
-        # Implement your custom extraction logic
-        # ...
+├── cli.py                # Command-line interface
+├── requirements.txt      # Dependencies
+└── README.md            # This file
 ```
 
 ## Troubleshooting
@@ -222,13 +181,12 @@ class CustomTagExtractor(TagExtractor):
    - Check the API key is being loaded correctly
 
 2. **Memory Issues**:
-   - For large collections, adjust the chunk size in config
-   - Process files in smaller batches
+   - For large collections, try processing files in smaller batches
+   - Reduce the number of categories or tags per category
 
-3. **Poor Quality Tags**:
-   - Try a different LLM model
-   - Adjust the prompts in `prompts.py`
-   - Increase the temperature for more diverse tags
+3. **Poor Quality Results**:
+   - Try a different LLM model (e.g., GPT-4)
+   - Ensure your content is well-structured and relevant
 
 ## Contributing
 
@@ -241,5 +199,28 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - [LangChain](https://github.com/langchain-ai/langchain) for the LLM framework
-- [NetworkX](https://networkx.org/) for graph visualization
 - [OpenAI](https://openai.com/) for GPT models
+
+## Performance Considerations
+
+### Parallel Processing
+The tool automatically utilizes all available CPU cores to process documents in parallel, which significantly improves performance for large document collections. The parallel processing:
+- Distributes document analysis across multiple CPU cores
+- Processes documents in optimized batch sizes
+- Maintains progress tracking while processing
+- Handles errors gracefully without stopping the entire process
+
+### Memory Usage
+For large collections of documents:
+- Documents are processed in batches to manage memory efficiently
+- Each CPU core processes its own batch independently
+- Results are aggregated incrementally to prevent memory spikes
+
+### Optimization Tips
+- Adjust the batch size using the configuration file if needed:
+  ```yaml
+  processing:
+    batch_size: 10  # Adjust based on your system's capabilities
+  ```
+- For very large collections, consider processing in multiple runs
+- Monitor system resources during processing to optimize settings

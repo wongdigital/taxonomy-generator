@@ -9,6 +9,7 @@ import sys
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any
+import yaml
 
 from taxonomy_generator import MarkdownTaxonomyGenerator
 
@@ -27,7 +28,7 @@ def setup_argparser() -> argparse.ArgumentParser:
     
     parser.add_argument(
         "--output-dir", "-o",
-        default="./taxonomy_output",
+        default="./output",
         help="Directory to save the generated taxonomy and visualizations"
     )
     
@@ -39,7 +40,25 @@ def setup_argparser() -> argparse.ArgumentParser:
     
     parser.add_argument(
         "--api-key", "-k",
-        help="OpenAI API key (defaults to OPENAI_API_KEY environment variable)"
+        help="OpenAI API key (defaults to config.yaml, then OPENAI_API_KEY environment variable)"
+    )
+    
+    parser.add_argument(
+        "--config", "-c",
+        default="config.yaml",
+        help="Path to configuration file (default: config.yaml)"
+    )
+    
+    parser.add_argument(
+        "--num-categories",
+        type=int,
+        help="Number of categories to generate (required in category generation mode)"
+    )
+    
+    parser.add_argument(
+        "--num-tags", "-n",
+        type=int,
+        help="Number of tags to generate"
     )
     
     parser.add_argument(
@@ -48,117 +67,86 @@ def setup_argparser() -> argparse.ArgumentParser:
         help="Enable verbose output"
     )
     
-    parser.add_argument(
-        "--config", "-c",
-        help="Path to configuration file"
-    )
-    
-    parser.add_argument(
-        "--format", "-f",
-        choices=["json", "yaml", "graphml"],
-        default="json",
-        help="Format for taxonomy export"
-    )
-    
     return parser
 
 
-def load_config(config_path: Optional[str]) -> Dict[str, Any]:
-    """Load configuration from file."""
-    if not config_path:
-        return {}
+def load_config(config_path: str, verbose: bool = False) -> Dict[str, Any]:
+    """Load configuration from a YAML file."""
+    config: Dict[str, Any] = {}
     
-    config_path = Path(config_path)
-    if not config_path.exists():
-        print(f"Warning: Config file {config_path} not found. Using defaults.")
-        return {}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f) or {}
+                if verbose:
+                    print(f"Loaded configuration from {config_path}")
+        except Exception as e:
+            print(f"Warning: Failed to load config file: {e}")
+    elif verbose:
+        print(f"Config file {config_path} not found, using defaults")
     
-    try:
-        with open(config_path, 'r') as f:
-            if config_path.suffix == '.json':
-                return json.load(f)
-            elif config_path.suffix in ['.yaml', '.yml']:
-                import yaml
-                return yaml.safe_load(f)
-            else:
-                print(f"Warning: Unsupported config format: {config_path.suffix}. Using defaults.")
-                return {}
-    except Exception as e:
-        print(f"Error loading config: {e}")
-        return {}
+    return config
+
+
+def get_api_key(args: argparse.Namespace, config: Dict[str, Any]) -> Optional[str]:
+    """Get API key from command line args, config file, or environment variable."""
+    # Command line argument takes precedence
+    if args.api_key:
+        return args.api_key
+    
+    # Then check config file
+    if config.get('llm', {}).get('api_key'):
+        return config['llm']['api_key']
+    
+    # Finally, check environment variable
+    return os.getenv("OPENAI_API_KEY")
 
 
 def main():
     """Main entry point for the CLI."""
-    # Parse arguments
     parser = setup_argparser()
     args = parser.parse_args()
     
-    # Check if input directory exists
-    if not os.path.isdir(args.input_dir):
-        print(f"Error: Input directory '{args.input_dir}' does not exist or is not a directory.")
-        sys.exit(1)
+    # Load configuration
+    config = load_config(args.config, args.verbose)
     
-    # Try to load config in this order:
-    # 1. Command line specified config
-    # 2. Default config.yaml in current directory
-    # 3. Empty config
-    config_path = args.config
-    if not config_path and os.path.exists('config.yaml'):
-        config_path = 'config.yaml'
-        print("Using default config.yaml file")
-    
-    config = load_config(config_path)
-    
-    # Command line args take precedence over config file
-    model = args.model or config.get("llm", {}).get("model")
-    api_key = args.api_key or config.get("llm", {}).get("api_key") or os.environ.get("OPENAI_API_KEY")
-    
+    # Get API key
+    api_key = get_api_key(args, config)
     if not api_key:
-        print("Error: OpenAI API key not provided. Please set it in the config file, use the --api-key option, or set the OPENAI_API_KEY environment variable.")
+        print("Error: OpenAI API key not found. Please provide it via --api-key, config.yaml, or OPENAI_API_KEY environment variable.")
         sys.exit(1)
     
+    # Set up OpenAI API key
     os.environ["OPENAI_API_KEY"] = api_key
     
-    # Create output directory
-    os.makedirs(args.output_dir, exist_ok=True)
+    # If number of tags not provided, ask user
+    num_tags = args.num_tags
+    if num_tags is None:
+        while True:
+            try:
+                num_tags = int(input("How many tags would you like to generate? "))
+                if num_tags > 0:
+                    break
+                print("Please enter a positive number.")
+            except ValueError:
+                print("Please enter a valid number.")
     
-    # Initialize taxonomy generator with model from config or default
     try:
+        # Initialize and run the taxonomy generator
         generator = MarkdownTaxonomyGenerator(
-            llm_model_name=model,
+            llm_model_name=args.model,
             config=config
         )
-    except Exception as e:
-        print(f"Error initializing taxonomy generator: {e}")
-        sys.exit(1)
-    
-    # Generate taxonomy
-    print(f"Analyzing Markdown files in '{args.input_dir}'...")
-    
-    try:
-        result = generator.generate_taxonomy(
+        
+        generator.generate_taxonomy(
             directory_path=args.input_dir,
-            output_dir=args.output_dir
+            output_dir=args.output_dir,
+            num_tags=num_tags
         )
         
-        # Print summary
-        print("\nTaxonomy Generation Summary:")
-        print(f"- Input directory: {args.input_dir}")
-        print(f"- Output directory: {args.output_dir}")
-        print(f"- Unique tags identified: {len(result['tags'])}")
-        print(f"- Relationships established: {len(result['relationships'].relationships)}")
-        print(f"- Graph visualization saved to: {result['visualization_path']}")
-        print(f"- Taxonomy data saved to: {result['json_path']}")
-        
     except Exception as e:
-        print(f"Error generating taxonomy: {e}")
-        if args.verbose:
-            import traceback
-            traceback.print_exc()
+        print(f"Error: {str(e)}")
         sys.exit(1)
-    
-    print("\nTaxonomy generation completed successfully!")
 
 
 if __name__ == "__main__":

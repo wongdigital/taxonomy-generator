@@ -1,22 +1,28 @@
 # Core dependencies
-langchain>=0.1.0
+langchain-community>=0.0.10
+langchain-core>=0.1.0
+langchain-openai>=0.0.5
 openai>=1.0.0
 pydantic>=2.0.0
 pyyaml>=6.0.0
+tqdm>=4.65.0  # For progress bars
 
 # Document processing
 markdown>=3.4.0
 
-# Vector storage and embeddings
-faiss-cpu>=1.7.0
+# Performance optimization
+multiprocess>=0.70.15  # For parallel processing
+psutil>=5.9.0  # For system resource monitoring
 
-# Data structures and visualization
-networkx>=3.0.0
-matplotlib>=3.5.0
+# Optional but recommended
+tiktoken>=0.4.0  # For OpenAI token counting
 
-# Optional dependencies
-# anthropic>=0.5.0  # Uncomment if using Claude
-# huggingface-hub>=0.16.0  # Uncomment if using Hugging Face models
-# tiktoken>=0.4.0  # Recommended for OpenAI token counting
-# streamlit>=1.22.0  # For interactive visualization
-# plotly>=5.13.0  # For interactive graphs
+# Development dependencies (optional)
+pytest>=7.0.0  # For running tests
+mypy>=1.0.0  # For type checking
+
+# Remove unused dependencies:
+# - faiss-cpu (not using vector storage anymore)
+# - networkx and matplotlib (not doing visualization anymore)
+# - anthropic, huggingface-hub (not using alternative models)
+# - streamlit, plotly (not doing interactive visualization)
