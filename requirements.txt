@@ -1,0 +1,22 @@
+# Core dependencies
+langchain>=0.1.0
+openai>=1.0.0
+pydantic>=2.0.0
+pyyaml>=6.0.0
+
+# Document processing
+markdown>=3.4.0
+
+# Vector storage and embeddings
+faiss-cpu>=1.7.0
+
+# Data structures and visualization
+networkx>=3.0.0
+matplotlib>=3.5.0
+
+# Optional dependencies
+# anthropic>=0.5.0  # Uncomment if using Claude
+# huggingface-hub>=0.16.0  # Uncomment if using Hugging Face models
+# tiktoken>=0.4.0  # Recommended for OpenAI token counting
+# streamlit>=1.22.0  # For interactive visualization
+# plotly>=5.13.0  # For interactive graphs
