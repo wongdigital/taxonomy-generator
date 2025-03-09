@@ -53,6 +53,13 @@ def setup_argparser() -> argparse.ArgumentParser:
     )
     
     parser.add_argument(
+        "--max-tags",
+        type=int,
+        default=10,
+        help="Maximum number of tags to apply per post (default: 10)"
+    )
+    
+    parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable verbose output"
@@ -147,8 +154,16 @@ def update_frontmatter_tags(frontmatter: Optional[str], tags: List[str]) -> str:
     Returns:
         Updated frontmatter content
     """
+    def quote_tag(tag: str) -> str:
+        """Quote tag if it contains special characters."""
+        if any(char in tag for char in ' :-,[]{}!@#$%^&*()|\\'):
+            # Use single quotes and escape any existing single quotes
+            escaped_tag = tag.replace("'", "''")
+            return f"'{escaped_tag}'"
+        return tag
+    
     if frontmatter is None:
-        return f"tags:\n  - " + "\n  - ".join(tags)
+        return f"tags:\n  - " + "\n  - ".join(quote_tag(tag) for tag in tags)
     
     # Remove existing tags section if present
     lines = frontmatter.split('\n')
@@ -170,7 +185,7 @@ def update_frontmatter_tags(frontmatter: Optional[str], tags: List[str]) -> str:
     new_frontmatter = '\n'.join(new_lines).strip()
     if new_frontmatter:
         new_frontmatter += '\n'
-    new_frontmatter += f"tags:\n  - " + "\n  - ".join(tags)
+    new_frontmatter += f"tags:\n  - " + "\n  - ".join(quote_tag(tag) for tag in tags)
     
     return new_frontmatter
 
@@ -196,7 +211,7 @@ def get_llm_client(config: Dict):
     else:
         raise ValueError(f"Unsupported LLM provider: {provider}")
 
-def get_content_tags(content: str, available_tags: Set[str], client: Union[OpenAI, Anthropic], config: Dict) -> List[str]:
+def get_content_tags(content: str, available_tags: Set[str], client: Union[OpenAI, Anthropic], config: Dict, max_tags: int = 10) -> List[str]:
     """Use LLM to analyze content and select appropriate tags.
     
     Args:
@@ -204,20 +219,21 @@ def get_content_tags(content: str, available_tags: Set[str], client: Union[OpenA
         available_tags: Set of available tags to choose from
         client: LLM client instance
         config: Configuration dictionary containing LLM settings
+        max_tags: Maximum number of tags to return (default: 10)
         
     Returns:
-        List of selected tags
+        List of selected tags, limited to the specified maximum
     """
     # Create a mapping of lowercase tags to their correct case
     tag_mapping = {tag.lower(): tag for tag in available_tags}
 
-    prompt = f"""Analyze the following markdown content and select ALL appropriate tags from the available set that apply to the content.
+    prompt = f"""Analyze the following markdown content and select the MOST relevant tags from the available set that apply to the content.
 
 Guidelines for tag selection:
-1. Include both specific and broader category tags that are relevant (e.g., both 'web design' and 'design' if both apply)
-2. Consider the main themes, topics, technologies, and concepts discussed
-3. Include tags for both primary and significant secondary topics
-4. Don't omit relevant broader categories just because more specific tags exist
+1. Select NO MORE THAN {max_tags} tags total
+2. Prioritize the most relevant and specific tags that best describe the main topics
+3. Include both specific and broader category tags that are relevant (e.g., both 'web design' and 'design' if both apply)
+4. Consider the main themes, topics, technologies, and concepts discussed
 5. Select tags based on substantial discussion, not just brief mentions
 6. IMPORTANT: Only use EXACT tags from the list below - do not modify or create variations
 
@@ -227,17 +243,18 @@ Available tags (use these EXACT tags only):
 Content:
 {content}
 
-Return a JSON object with a 'tags' array containing ONLY tags from the provided list, like this:
+Return a JSON object with a 'tags' array containing ONLY tags from the provided list (maximum {max_tags} tags), like this:
 {{"tags": ["tag1", "tag2", "tag3"]}}
 
 Remember:
 - Use only the exact tags provided above
 - Include both specific and broader categories when relevant
-- Do not modify or create variations of the tags"""
+- Do not modify or create variations of the tags
+- Select NO MORE THAN {max_tags} tags total"""
 
-    system_prompt = """You are a precise document tagging assistant. You identify relevant tags, but ONLY use exact tags from the provided list.
+    system_prompt = f"""You are a precise document tagging assistant. You identify relevant tags, but ONLY use exact tags from the provided list.
                     
-Your task is to be thorough in selecting tags, but you must NEVER modify the tags or create variations.
+Your task is to be thorough in selecting tags (up to a maximum of {max_tags}), but you must NEVER modify the tags or create variations.
 Only use the exact tags provided in the list."""
 
     try:
@@ -283,7 +300,8 @@ Only use the exact tags provided in the list."""
         elif len(valid_tags) != len(selected_tags):
             print(f"Warning: Some selected tags were invalid. Original: {selected_tags}, Valid: {valid_tags}")
         
-        return sorted(set(valid_tags))  # Remove duplicates and sort
+        # Ensure we return no more than max_tags tags
+        return sorted(set(valid_tags[:max_tags]))  # Remove duplicates, limit to max_tags, and sort
     except Exception as e:
         print(f"Warning: Error processing content for tags. Error: {e}")
         return []
@@ -293,7 +311,9 @@ def process_markdown_file(
     output_file: Path,
     available_tags: Set[str],
     client: Union[OpenAI, Anthropic],
-    config: Dict
+    config: Dict,
+    max_tags: int = 10,
+    error_log: List[str] = None
 ) -> None:
     """Process a single markdown file, updating its tags.
     
@@ -303,6 +323,8 @@ def process_markdown_file(
         available_tags: Set of available tags to choose from
         client: LLM client instance
         config: Configuration dictionary
+        max_tags: Maximum number of tags to apply (default: 10)
+        error_log: List to store error messages about files with no tags
     """
     with open(input_file, 'r', encoding='utf-8') as f:
         content = f.read()
@@ -310,7 +332,12 @@ def process_markdown_file(
     frontmatter, remaining_content = extract_frontmatter(content)
     
     # Get tags based on the entire content
-    selected_tags = get_content_tags(content, available_tags, client, config)
+    selected_tags = get_content_tags(content, available_tags, client, config, max_tags)
+    
+    # Log files that received no tags
+    if not selected_tags and error_log is not None:
+        error_log.append(str(input_file))
+    
     updated_frontmatter = update_frontmatter_tags(frontmatter, selected_tags)
     
     # Ensure output directory exists
@@ -387,18 +414,37 @@ def main() -> None:
         # Initialize LLM client based on config
         client = get_llm_client(config)
         
-        # Process all markdown files
-        markdown_files = list(input_dir.glob('*.md'))
+        # Process all markdown files recursively
+        markdown_files = list(input_dir.rglob('*.md'))
         if not markdown_files:
-            print(f"Warning: No markdown files found in {input_dir}")
+            print(f"Warning: No markdown files found in {input_dir} or its subdirectories")
             sys.exit(0)
             
         print(f"Found {len(markdown_files)} markdown files to process")
+        
+        # List to store files that received no tags
+        untagged_files = []
+        
         for md_file in tqdm(markdown_files, desc="Processing files"):
-            output_file = output_dir / md_file.name
-            process_markdown_file(md_file, output_file, available_tags, client, config)
+            # Preserve the directory structure in the output
+            relative_path = md_file.relative_to(input_dir)
+            output_file = output_dir / relative_path
+            
+            # Create the parent directory if it doesn't exist
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            process_markdown_file(md_file, output_file, available_tags, client, config, args.max_tags, untagged_files)
             if args.verbose:
-                print(f"Processed {md_file.name}")
+                print(f"Processed {relative_path}")
+        
+        # Write error log if there were any untagged files
+        if untagged_files:
+            error_log_file = output_dir / 'untagged_files.log'
+            with open(error_log_file, 'w') as f:
+                f.write("The following files received no tags:\n\n")
+                for file_path in untagged_files:
+                    f.write(f"{file_path}\n")
+            print(f"\nWarning: {len(untagged_files)} files received no tags. See {error_log_file} for details.")
         
         print(f"\nProcessing complete. Tagged files saved to: {output_dir}")
         
