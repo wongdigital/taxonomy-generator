@@ -45,7 +45,10 @@ cache/
 Thumbs.db
 
 # Project specific
+input/
 output/
+small-input/
+small-output/
 *.log
 taxonomy_graph.png
 taxonomy.json

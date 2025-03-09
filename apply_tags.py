@@ -14,6 +14,10 @@ from tqdm import tqdm
 import yaml
 import argparse
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def setup_argparser() -> argparse.ArgumentParser:
     """Set up command-line argument parser."""
@@ -64,6 +68,23 @@ def load_config(config_path: str, verbose: bool = False) -> Dict[str, Any]:
         try:
             with open(config_path, 'r') as f:
                 config = yaml.safe_load(f) or {}
+                
+                # Handle environment variable substitution
+                def replace_env_vars(obj: Any) -> Any:
+                    if isinstance(obj, dict):
+                        return {k: replace_env_vars(v) for k, v in obj.items()}
+                    elif isinstance(obj, list):
+                        return [replace_env_vars(v) for v in obj]
+                    elif isinstance(obj, str) and obj.startswith("${") and obj.endswith("}"):
+                        env_var = obj[2:-1]
+                        env_value = os.getenv(env_var)
+                        if env_value is None and verbose:
+                            print(f"Warning: Environment variable {env_var} not found")
+                        return env_value
+                    return obj
+                
+                config = replace_env_vars(config)
+                
                 if verbose:
                     print(f"Loaded configuration from {config_path}")
         except Exception as e:
