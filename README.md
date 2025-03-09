@@ -36,7 +36,7 @@ It uses LLMs (like GPT-3.5/4 or Claude) to understand the semantic meaning of yo
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/taxonomy-generator.git
+   git clone https://github.com/wongdigital/taxonomy-generator.git
    cd taxonomy-generator
    ```
 
