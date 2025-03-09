@@ -50,5 +50,4 @@ output/
 small-input/
 small-output/
 *.log
-taxonomy_graph.png
-taxonomy.json
+tags.json
